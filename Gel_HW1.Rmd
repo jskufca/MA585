@@ -1,0 +1,42 @@
+---
+title: "Gelman2012 HW1: Voting Data Example"
+output: 
+  html_notebook:
+        toc: yes
+        toc_float: true
+---
+
+# Loading packages
+
+Our intention is to use packages from the tidyverse and other *tidy* packages to provide a constistant framework.      
+
+
+
+```{r}
+
+library(readr) # reading data files
+library(lubridate) # working with dates
+library(broom)
+library(sf) #mapping and geospatial
+library(tmap)
+library(GISTools)
+library(tidyverse) # data manipulation and visualization - loads several packages
+```
+
+Some addition packages as indicated for the Bayesian work:
+
+
+```{r}
+library(foreign)
+```
+
+
+# Reading Data
+
+
+```{r}
+dffull=read.dta("pew_research_center_june_elect_wknd_data.dta")
+df=read_csv("2008ElectionResult.csv")
+```
+
+
