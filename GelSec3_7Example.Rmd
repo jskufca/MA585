@@ -125,3 +125,6 @@ combine
 grid.arrange(pos, sam, his, nrow=3)
 ```
 
+```{r}
+df2=crossing(A,B)
+```

@@ -1,0 +1,167 @@
+---
+title: "Gelman Heirarchical Rats (Ch 5)"
+output: html_notebook
+---
+
+## Book Example - section 5.3: Rats 
+
+My intention here is to step through the procedures shown in the book for analysis of the rats data with heirarchical model.  
+
+My general approach in working with R is biased by the type of work I generally do.  As such, I try to use dataframes as my primary data structures and uses commands from the tidyverse to maniuplate that data.  
+
+>Note - dataframes and the tidyverse is *generally* a good approach, but not always.  Moreover, _there is more than one way to skin a cat._  So, your code would not need to look like mine.)
+
+
+#### Packages
+
+I load a standard kid of packages.  
+
+```{r}
+library(knitr)
+library(lubridate) # working with dates
+library(broom)
+library(gridExtra)
+library(tidyverse) # data manipulation and visualization - loads several packages
+
+```
+
+### Get the data
+
+```{r}
+df1=tibble(y = c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                 1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,
+        2,1,5,2,5,3,2,7,7,3,3,2,9,10,
+        4,4,4,4,4,4,4,10,4,4,4,5,11,12,
+        5,5,6,5,6,6,6,6,16,15,15,9,4),
+n = c(20,20,20,20,20,20,20,19,19,19,19,
+      18,18,17,20,20,20,20,19,19,18,18,25,24,
+       23,20,20,20,20,20,20,10,49,19,46,27,
+      17,49,47,20,20,13,48,50,20,20,20,20,
+       20,20,20,48,19,19,19,22,46,49,20,
+      20,23,19,22,20,20,20,52,46,47,24,14))
+```
+
+### Estimating $p(\alpha,\beta |y)$
+
+Define our log-likelihood and posterior probability functions:
+
+```{r}
+logl <- function(a, b){
+  lgamma(a+b)-lgamma(a)-lgamma(b)+lgamma(a+df1$y)+lgamma(b+df1$n-df1$y)-lgamma(a+b+df1$n)
+}
+
+fun=function (A,B) {-5/2*log(A+B)+(sum(logl(A,B)))}
+```
+
+To compute over an "appropriate" grid, we follow the book advice and sample on a grid in the  transformed coordinates.
+The book give some help on reasonble ranges to build our grid
+
+```{r}
+Ax=seq(-2.3,-1.3,length.out=100) # values of ln(alpha/beta)
+Bx=seq(1,5,length.out=100) # values of ln(alpha + beta)
+```
+
+We now build our data frame.  `Ax` and `Bx` represent the transformed variables, while `A` and `B` are the associated $\alpha$ and $\beta$ values.  I need those columns to evaluate the posterior function.
+
+```{r}
+
+df2=crossing(Ax,Bx) %>%
+  mutate(A=exp(Ax+Bx)/(exp(Ax)+1),B=exp(Bx)/(exp(Ax)+1)) %>%
+  mutate(p=pmap_dbl(list(A=A,B=B),fun),p=exp(p-max(p)))
+
+```
+
+### Visualize the posterior
+
+```{r eval=FALSE, include=FALSE}
+#xl <- c(-2, 8)
+#yl <- c(-2, 40)
+
+# df2 %>% ggplot(aes(x=A,y=B,)) +
+#   geom_raster(aes(fill = p, alpha = p), interpolate = T) +
+#   geom_contour(aes(z = p), colour = 'black', size = 0.2) +
+#   labs(x = '~alpha', y = '~beta') +
+#   scale_fill_gradient(low = 'yellow', high = 'red', guide = F) +
+#   scale_alpha(range = c(0, 1), guide = F) +
+#   theme_minimal()
+
+```
+
+
+```{r}
+#xl <- c(-2, 8)
+#yl <- c(-2, 40)
+
+#df2 %>% ggplot(aes(x=log(A/B),y=log(A+B))) +
+ # geom_point()
+  
+ df2 %>% ggplot(aes(x=Ax,y=Bx,)) +
+  geom_raster(aes(fill = p, alpha = p), interpolate = T) +
+  geom_contour(aes(z = p), colour = 'black', size = 0.2) +
+  labs(x = bquote(ln(alpha/beta)), y = bquote(ln(alpha+beta))) +
+  scale_fill_gradient(low = 'yellow', high = 'red', guide = F) +
+  scale_alpha(range = c(0, 1), guide = F) +
+  theme_minimal()
+```
+
+We may sample from that posterior and visualize:
+
+```{r}
+nsamp=1000
+mysample=df2 %>% sample_n(size=nsamp, replace=TRUE,weight=p)
+```
+
+in the space of the transformed coordinates.
+```{r}
+mysample %>% ggplot( aes(x=Ax, y=Bx))    +
+  geom_jitter(color = 'blue') +
+  labs(x = bquote(ln(alpha/beta)), y = bquote(ln(alpha+beta))) +
+  theme_minimal()
+```
+
+And in the original hyperparameter space.
+
+```{r}
+mysample %>% ggplot( aes(x=A, y=B))    +
+  geom_jitter(color = 'blue') +
+  labs(x = 'alpha', y = 'beta') +
+  theme_minimal()
+```
+
+
+### Simulations
+
+Let's now consider the simulation of the full model (as outlined in section 5.3).  
+
+#### Step 1
+`mysample` already gives us our 1000 draws from posterior marginal $p(\alpha,\beta|y)$.
+
+#### Step 2
+
+For each of those draws, we want to get our `J=71` values for $\theta_j,$ drawn from the posterior conditional distribution $p(\theta_j|\alpha,\beta,y)$ taken from distribution $Beta(\alpha+y_j, \beta+n_j-y_j)$.
+
+```{r}
+a1=mean(mysample$A)
+b1=mean(mysample$B)
+
+dfs=mysample %>% select(A,B,p)
+dfs$theta71.post=rbeta(1,dfs$A+4,dfs$B+14)
+dfs$theta71.post.res=rbeta(1,a1+4,b1+14)
+
+#dfs2=df2 %>% gather
+
+```
+
+
+```{r}
+dfs %>% ggplot(aes(x=theta71.post))+geom_density(aes(x=theta71.post),color="Red")+
+  geom_density(aes(x=theta71.post.res),color="Blue")+
+  xlim(0, .6)+
+theme_minimal()
+```
+
+
+
+
+
+

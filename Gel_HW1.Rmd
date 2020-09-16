@@ -20,6 +20,7 @@ library(broom)
 library(sf) #mapping and geospatial
 library(tmap)
 library(GISTools)
+library(janitor) # data cleaning
 library(tidyverse) # data manipulation and visualization - loads several packages
 ```
 
@@ -31,12 +32,104 @@ library(foreign)
 ```
 
 
-# Reading Data
+# Reading Data and preprocessing
+
+Read the data.
 
 
 ```{r}
 dffull=read.dta("pew_research_center_june_elect_wknd_data.dta")
-df=read_csv("2008ElectionResult.csv")
+df=read_csv("2008ElectionResult.csv") %>%  mutate(stateAbb=openintro::state2abbr(state))
+```
+
+Parse dataset to fields of interest to ease working with the data.
+
+```{r}
+# dfA=dffull %>% select(state,ideo) %>% group_by(state,ideo) %>% add_tally() %>% 
+#     mutate(vl=p/n,stateAbb=openintro::state2abbr(state))
+
+dfA=dffull %>% select(state,ideo) %>% tabyl(state,ideo) %>% adorn_totals("col") %>%
+   mutate(vl=`very liberal`/Total,stateAbb=openintro::state2abbr(state))
+
+dfA
+
+
+
+
+```
+
+We combine the polling data with the election results into a single dataframe.  We remove Alaska and Hawaii because we have too few polling results.
+
+```{r}
+dfB=dfA %>% select(-state) %>% left_join(df,by="stateAbb") %>%
+  select(state,vl,everything()) %>% filter(Total > 1)
+```
+
+# Creating plots
+
+The plot using the sampled value of percentage that are very liberal.
+
+```{r}
+dfB %>% ggplot(aes(x=vote_Obama_pct,y=vl,label=stateAbb)) +
+  geom_label()+theme_minimal()+ggtitle('Survey percent of very liberal')
+```
+
+### Computing a prior distribution
+
+Following the discussion from section 2.7 in the book, we treat each of the measured values of `vl` as being taken from a mixture of Poisson distributions.  As the book indicates, if that mixture is assumed to have come from poisson distributions whose rate parameters are Gamma distributed, then the result is a negative binomial distrubtion.   For our prior distribution for the rate parameter, we want to recover the Gamma distribution that would best represent the collection of rates across the states.
+
+As described on page 51, we compute as follows:
+
+
+```{r}
+A=mean(dfB$vl)
+B=var(dfB$vl)
+C=mean(1/dfB$Total)
+```
+
+Then $A=\alpha / \beta,$
+
+$B=CA +A/\beta .$
+
+Solving for $\alpha$ and $\beta$ gives the values of the prior parameters:
+
+```{r}
+beta=A/(B-C*A)
+alpha=A*beta
+```
+
+### Compute posterior distribution parameters
+
+Following the method described on page 48 of the book, we computer poster parameters and mean for all states.
+```{r}
+dfB = dfB %>% mutate(postmean=(alpha+`very liberal`)/(beta+Total))
+
+dfB %>% ggplot(aes(x=vote_Obama_pct,y=postmean,label=stateAbb)) +
+  geom_label()+theme_minimal()+ggtitle('Posterior mean of very liberal')
+
 ```
 
 
+### How much difference is there between the survey and the posterior
+
+```{r}
+dfB %>% ggplot(aes(x=vl,y=postmean,label=stateAbb)) +
+  geom_label()+theme_minimal()+ggtitle('Posterior mean versus survey')
+
+```
+
+
+
+
+
+```{r}
+dfB %>% ggplot(aes(x=Total,y=vl,label=stateAbb)) +
+  geom_label()+theme_minimal()+ggtitle('Very Liberal versus number surveyed')
+
+```
+
+```{r}
+dfB %>% ggplot(aes(x=Total,y=postmean,label=stateAbb)) +
+  geom_label()+theme_minimal()+ggtitle('Posterior mean versus  number surveyed')
+
+```
