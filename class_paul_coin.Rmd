@@ -1,0 +1,35 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Paul's coin problem.
+
+```{r}
+library(tidyverse)
+```
+
+Generate draws from the posterior.
+
+```{r}
+
+theta_post=rbeta(1000,23,17)
+hist(theta_post,30)
+
+```
+
+
+### Validating
+
+Generating a replicate data sample.
+
+```{r}
+theta_p=rbeta(1,23,17)
+theta_p
+y_paul=c(1,1,0,1,0,1,1,1,0,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,1,0)
+y_rep=rbernoulli(30, p = theta_p) +0
+y_rep
+y_paul
+mean(y_rep)
+```
+
