@@ -1,35 +1,186 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Paul's coin"
+subtitle: "Class demo problem from Monday, 21 Sep"
+author: "Joe Skufca"
+date:  "22 SEP 2020"
+output: 
+  html_notebook:
+    toc: true
+    toc_float: true
+    toc_depth: 3
 ---
 
-Paul's coin problem.
+## Background
 
+I asked Paul to "imagine" a coin that was not necessarily fair, but, at least approximately fair.  He was then to use that coing (in his imagination) to create a sequence of coin flips of length 30, encoded as a 1/0 sequence.
+
+Our intention is to analyze that imaginary coin.
+
+## Workspace preparation
+
+Whenever I work with data, I usually load a set of packages from the tidyverse, along with a couple of packages that I find handy.
 ```{r}
+library(janitor)
 library(tidyverse)
 ```
 
-Generate draws from the posterior.
+## Data
+
+Paul gave me his imagined stream:
+
+```{r}
+y=c(1,1,0,1,0,1,1,1,0,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,1,0)
+sum(y)
+```
+
+## Bayesian modeling analysis
+
+### Model
+
+The class concensus was that the most reasonable model for the data generating was a sequence of bernoulli trials, with unknown parameter theta, the probability of "1":
+
+$$ y|\theta \sim Bin(30,\theta).$$
+### Prior
+
+Recognizing that the Beta-distribution is a conjugate family for this likelihood, the class thought it reasonable to use something from that family as a prior.  
+We had some information about the coin (that it was approximately fair), so we decided that we should choose $\alpha=\beta$ in parameterizing the prior.   After some discussion, Paul decided on 
+$$ \alpha = \beta = 5.$$
+
+That prior distribution is graphed below:
+
+```{r}
+a=5
+b=5
+thet=seq(0,1,length=201)
+plot(thet,dbeta(thet,a,b))
+```
+
+### Posterior distribution
+
+As we had a conjugate prior working for us, it was easy to compute a posterior distribution by noting that we had `18` ones in the sequence of length 30.  Using our update formulas (which we have used many times already for this type of problem),
+
+$$ \theta |y \sim Beta(5+18,5+30-18) = Beta(23,17). $$
+We can plot this posterior directly.
+
+```{r}
+plot(thet,dbeta(thet,23,17))
+```
+### Drawing from the posterior
+
+As our posterior distribution is a named distribution, it is easy to draw from the posterior.  We use these draws to make a histogram ... not because it shows us much, but to recognize that our sample does not perfectly recreate the theoretical distribution.
 
 ```{r}
 
 theta_post=rbeta(1000,23,17)
-hist(theta_post,30)
+hist(theta_post,30,xlim = c(0,1))
 
 ```
 
 
 ### Validating
 
-Generating a replicate data sample.
+In evaluating our model, there are lots of things to consider.  Of course are assumed model is not "correct", but does it capture key characteistics of the data.  To answer that question, we generate "replicates" of the data:  Example sequences of length 30, using are resultant model, in the following way:
+
+* Draw a $\theta$ from our posterior distribution.
+* Use that $\theta$ in a bernoulli  random generator to create a sequence of length 30.
+
 
 ```{r}
 theta_p=rbeta(1,23,17)
 theta_p
-y_paul=c(1,1,0,1,0,1,1,1,0,0,1,1,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,1,0)
-y_rep=rbernoulli(30, p = theta_p) +0
+y_rep=rbernoulli(30, p = theta_p) +0 #to give numeric output
 y_rep
-y_paul
 mean(y_rep)
 ```
+
+Each time we run the above code chunk, we will get a different realization.
+In class, we convinced ourselves that the *replicate* sequences often had longer runs of either `1` or `0` relative to Paul's sequence.  
+
+Paul explained this by recognizing that humans aren't so good at generating random numbers, and in trying to generate a *random* sequence, he changed symbols to frequently.
+
+Let's test by using a Statistic.
+
+#### A test statistic
+
+I won't use what we did in class (counting the length of the longest run).  Instead, I will calculuate something simpler (from a coding perspective) - the number of times that it changes from 1 to 0 or from 0 to 1.
+
+```{r}
+# helper function
+swaps=function (y) {
+ y %>% diff() %>% abs() %>% sum()
+}
+
+t_obs=swaps(y) #test statistic, not a student-t value
+```
+Is the observed value (19 swaps) consisent with our model.  To formally consider that question, we generate a sample of size 1000 replicates of our experiment.  For each replicate, we count the number of swaps in that replicate.  We will be considering the FULL probability model, where each of the 1000 replicates (of a length 30 sequence) uses a different draw from the posterior distribution.
+
+I will use a dataframe to store the results.  (I will take advantage of the map_df command from purrr to do the looping.)
+
+```{r}
+helper=function(x) {
+  theta_p=rbeta(1,23,17)
+y_rep=rbernoulli(30, p = theta_p) +0 #to give numeric output
+t=swaps(y_rep)
+tibble(theta_p,y_rep=list(y_rep),t)
+}
+
+S=1000 # sample size
+
+dfa= map_df(1:S,helper)
+
+```
+
+
+Let's take a look at a histogram of our statistic, along with our observed value.
+
+```{r}
+dfa %>% ggplot(aes(x=t)) + 
+  geom_histogram(binwidth=1) + geom_vline(xintercept=t_obs,color="red")
+```
+
+OK - So maybe our sequence (from) Paul, is a little bit to "swappy" to have come from a bernoulli process.  (But not impossible).   I'll stop here on this line of analysis, and show you something mildly related.
+
+## A non-conjugate prior for this problem
+
+I am not going to go though all of the stuff above using a non-conjugate prior (as the validation stuff would be identical once I have draws from the posterior distribution.)  But ... I do want to show you that modern computers make this pretty easy.
+
+Here we will approximate on a grid of size 10001.
+
+### A prior
+
+We will use an unscaled prior based on sin function.  I am just making something up ... showing that if you can compute values, you are set.
+```{r}
+thet_non=seq(0,1,length=10001);
+p=sin(5*pi*thet_non)^2; # just
+plot(thet_non,p,type="l")
+```
+
+I evaluate the likelihood function at exactly those values of $\theta$, using the binomial distribution (our chosen model) with the observed data of $y=18, n=30$.
+```{r}
+L=dbinom(18,30,thet_non)
+```
+
+
+### The posterior
+
+The posterior (unscaled) is the pointwise product, which I graph here, just like I did above, by plotting exactly at the $\theta$ values selected to describe the prior.
+
+```{r}
+p_post=p*L
+plot(thet_non,p_post,type="l")
+```
+
+### Sampling from the posterior
+
+To draw simulated samples from that distribution, using sampling weights defined by the posterior.   As above, I plot a histogram of the sample values.
+
+
+
+```{r}
+theta_non_post = sample(thet_non,1000,replace=T,prob=p_post)
+
+hist(theta_non_post,30,xlim = c(0,1))
+```
+
+
 
