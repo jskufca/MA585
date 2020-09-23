@@ -1,0 +1,268 @@
+---
+title: "Demos from Chapter 10-11"
+output: 
+  html_notebook:
+        toc: yes
+        toc_float: true
+---
+
+## Loading packages
+
+Our intention is to use packages from the tidyverse and other *tidy* packages to provide a constistant framework.      
+
+
+```{r}
+library(lubridate) # working with dates
+library(broom)
+library(mvtnorm)
+library(tidyverse) # data manipulation and visualization - loads several packages
+
+theme_set(theme_minimal()) #set a default ggplot theme
+```
+
+## Chap 10,  Importance sampling
+
+Here we illustrate importance sampling where our goal is to estimate $p(X>3)$ where $X \sim N(0,1).$  We can find a Monte Carlo estimate by taking a sample of points from that disribution and finding the faci that exceed 3.
+```{r}
+n=100; #draws per experiment
+N=10000; # runs
+
+#theta=numeric(N) #pre-allocate array
+# for (i in 1:N) {
+#   x=(rnorm(n)>3)
+#   theta[i]=mean(x)
+# }
+theta=map_dbl(1:N,~(rnorm(n)>3) %>% mean())# replaced the loop
+
+mean(theta)
+var(theta)
+
+```
+
+We now use importance sampling to improve the approximation - reducing the variance by several orders of magnitude.
+
+```{r}
+n=100; #draws per experiment
+N=10000; # runs
+
+# theta=numeric(N)
+# for (i in 1:N) {
+#   x=rnorm(n,4,1)
+#   theta[i]=mean((x>3)*dnorm(x)/dnorm(x,4,1))
+f=function(i){
+  x=rnorm(n,4,1)
+  mean((x>3)*dnorm(x)/dnorm(x,4,1))
+  }
+theta_imp=map_dbl(1:N,f)# replaced the loop
+  
+mean(theta_imp)
+var(theta_imp)
+
+```
+
+
+## Gibbs sampler illustration from Section 11.1
+
+We can execute a single chain, starting from $(-2.5,2.5)$.
+
+```{r}
+n=2000
+y1=0
+y2=0
+rho=.8
+sd=sqrt(1-rho^2)
+theta1=numeric(n)-2.5 #initialize
+theta2=numeric(n)+2.5 #initialize
+for (i in 2:n) {
+  theta1[i]=rnorm(1,y1+rho*(theta2[i-1]-y1),sd)
+  theta2[i]=rnorm(1,y2+rho*(theta1[i]-y2),sd)
+}
+
+plot(theta1,theta2,asp=1,type="p")
+```
+ 
+ Note that the algorithm produced what (visually) appears to be sample from a correllated, bivariate normal.
+ 
+## Sec 11.2 - Metropolis and Metropolis-Hastings
+ 
+ We will look at Metropolis, and also the improvment, Metropolis-Hastings
+ 
+### First, lets implement *Metropolis* for a bivariate normal. 
+
+The target density is bivariate normal, $p(\theta|y)=N(theta|0,I)$. We also use a bivariate jumping distribution, which is scaled to a standard deviation of `sd=0.2`.
+ 
+```{r}
+n=2000
+y1=0
+y2=0
+
+#sd=sqrt(1-rho^2)
+S=diag(2)
+
+# add some correlation
+rho=.8
+S[1,2]=rho
+S[2,1]=rho
+
+sj=.5;  # jump scale
+theta1=numeric(n)-2.5 #initialize
+theta2=numeric(n)+2.5 #initialize
+for (i in 2:n) {
+  x=rmvnorm(1,c(theta1[i-1],theta2[i-1]),sigma = diag(2)*sj^2) #test point
+ 
+  d=dmvnorm(c(theta1[i-1],theta2[i-1]),
+            mean=c(y1,y2),sigma = S) # probability of previous point
+  n=dmvnorm(x,
+            mean=c(y1,y2),sigma = S) # evaluate numerator probability
+    crit=min(n/d,1)
+    if (runif(1)<crit) {
+      flag=TRUE
+      theta1[i]=x[1]
+      theta2[i]=x[2]
+    }
+    else {
+      theta1[i]=theta1[i-1]
+      theta2[i]=theta2[i-1]
+      
+    }
+}
+
+plot(theta1,theta2,asp=1)
+
+```
+ 
+#### With a different jump distribution
+
+Here we try a different jump distribution, where the jump is a proposed movement by $d1,d2$, where $d_i$ is iid from $U[-sj,sj]$.  Note: the jump distribution remains symetric.
+
+ 
+```{r}
+n=20000
+y1=0
+y2=0
+
+#sd=sqrt(1-rho^2)
+S=diag(2)
+
+# add some correlation
+rho=.8
+S[1,2]=rho
+S[2,1]=rho
+
+sj=.5;  # jump scale
+theta1=numeric(n)-2.5 #initialize
+theta2=numeric(n)+2.5 #initialize
+for (i in 2:n) {
+  #x=rmvnorm(1,c(theta1[i-1],theta2[i-1]),sigma = diag(2)*sj^2) #test point
+  
+  x=c(theta1[i-1],theta2[i-1])+runif(2,-sj,sj)
+  
+  
+  d=dmvnorm(c(theta1[i-1],theta2[i-1]),
+            mean=c(y1,y2),sigma = S) # probability of previous point
+  n=dmvnorm(x,mean=c(y1,y2),sigma = S) # evaluate numerator probability
+    crit=min(n/d,1)
+    if (runif(1)<crit) {
+      theta1[i]=x[1]
+      theta2[i]=x[2]
+    }
+    else {
+      theta1[i]=theta1[i-1]
+      theta2[i]=theta2[i-1]
+      
+    }
+}
+
+
+
+tibble(theta1,theta2,z=dmvnorm(cbind(theta1,theta2),mean=c(y1,y2),sigma = S)) %>% 
+  ggplot(aes(x=theta1,y=theta2)) + geom_point(alpha=.05)+geom_density_2d()+ coord_fixed()
+
+```
+ 
+### In class example for Friday - scalar Metropolis
+
+For Friday's class, I asked you to build a use Metropolis algorithm to sample from $N(3,1)$ using a jump distribution based on a uniform jump from the previous position, so that $$\theta^* = \theta^{t-1} +U(-.5,.5).$$
+
+
+#### Creating a single chain from the target
+As starting point, I will mostly just modify the code from above, making it a bit more compact.  We write as a function to allow for easy replication
+
+```{r}
+
+make.chain = function (n = 1000, theta_0 = 0) {
+  
+  theta = numeric(n) - theta_0 #initialize
+  
+  ptarget = function (x) {dnorm(x, mean = 3, sd = 1)} # target distribution
+  jump.from = function (theta) {theta + runif(1, -.25, .25)} # conditional jump
+  
+  for (i in 2:n) {
+    theta.star = jump.from(theta[i - 1])
+    
+    r = ptarget(theta.star) / ptarget(theta[i - 1])
+    if (runif(1) < r) {theta[i] = theta.star    }
+    else              {theta[i] = theta[i - 1]}
+  }
+  theta
+}
+theta=make.chain()
+plot(theta)
+```
+
+#### Consider multiple chains
+
+This is a bit of fancier R programming, taking advantage of the `purrr` package.   I use it to generate a large dataframe containg 5 different chains.
+
+```{r}
+n=200; #number of iterations retained after discard and splitting
+m=10; #number of chains, after splitting
+MC=1:(m/2) %>% map_df(~tibble(run=.x,theta=make.chain(4*n,rnorm(1,0,5)),index=seq(theta)))
+
+MC %>% ggplot(aes(x=index,y=theta,color=factor(run))) + geom_line()
+
+```
+
+Now let's compute the scale reduction $\hat{R}$, as described on pg 284-285.
+
+We discard the first half of the data and then split the remaining data into two parts, giving us `2m` chains.
+
+```{r}
+MC1=MC %>% filter(index>2*n) %>% mutate(index=index-2*n) %>%
+  mutate(chain=(2*run-1)+(index>n))
+```
+
+To support the computation of `B` and `W`, we summarize variances accross the dataset.  Note - are scalar estimand is simply theta.
+
+```{r}
+MCsum=MC1 %>% group_by(chain) %>% summarise(psi.j=mean(theta),var.j=var(theta)) %>% 
+  mutate(psi..=mean(psi.j),B.j=(psi.j-psi..)^2)
+MCsum
+B=n/(m-1)*sum(MCsum$B.j)
+W=mean(MCsum$var.j)
+
+var.bar = (n-1)/n*W+1/n*B
+
+R.hat=sqrt(var.bar/W)
+R.hat
+```
+
+Alternatively, we might recognize that B and W are computed as part of the standard ANOVA table, so we can take advantage of the build-in `aov` command.
+
+```{r}
+a=aov(theta~factor(chain),data=MC1) %>% tidy() %>% pull(meansq)
+B=a[1]
+W=a[2]
+var.bar = (n-1)/n*W+1/n*B
+
+R.hat=sqrt(var.bar/W)
+R.hat
+```
+
+
+
+
+
+
+
+
