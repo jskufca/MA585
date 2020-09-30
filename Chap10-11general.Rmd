@@ -137,7 +137,7 @@ Here we try a different jump distribution, where the jump is a proposed movement
 
  
 ```{r}
-n=20000
+n=2000
 y1=0
 y2=0
 
@@ -149,7 +149,7 @@ rho=.8
 S[1,2]=rho
 S[2,1]=rho
 
-sj=.5;  # jump scale
+sj=30;  # jump scale
 theta1=numeric(n)-2.5 #initialize
 theta2=numeric(n)+2.5 #initialize
 for (i in 2:n) {
@@ -176,7 +176,7 @@ for (i in 2:n) {
 
 
 tibble(theta1,theta2,z=dmvnorm(cbind(theta1,theta2),mean=c(y1,y2),sigma = S)) %>% 
-  ggplot(aes(x=theta1,y=theta2)) + geom_point(alpha=.05)+geom_density_2d()+ coord_fixed()
+  ggplot(aes(x=theta1,y=theta2)) + geom_path(alpha=.2)+geom_density_2d()+ coord_fixed()
 
 ```
  
