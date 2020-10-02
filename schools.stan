@@ -10,7 +10,7 @@ vector[J] eta; // school-level errors
 }
 transformed parameters {
 vector[J] theta; // school effects
-theta <- mu + tau*eta;
+theta = mu + tau*eta;
 }
 model {
 eta ~ normal(0, 1);

@@ -1,0 +1,92 @@
+---
+title: "Bayesian SIR"
+author: "Joe Skufca"
+output: html_notebook
+---
+
+A Bayesian analysis of influenza outbreak following tutorial of https://mc-stan.org/users/documentation/case-studies/boarding_school_case_study.html
+
+## Data
+
+
+My standard packages, plus Rstan, and the outbreaks package, where we will find data.
+```{r}
+library(outbreaks)
+library(tidyverse)
+library(janitor)
+library(rstan)
+```
+
+```{r}
+influenza_england_1978_school
+
+```
+
+Graphically:
+
+```{r}
+ggplot(data = influenza_england_1978_school) + 
+  geom_point(mapping = aes(x = date, y = in_bed)) + 
+  labs(y = "Number of students in bed")
+```
+Sampling distribution is distribution for observed number in bed:
+
+
+$$I_\text{obs}(t) \sim \text{NegBin}(I_\text{ODE}(t), \phi)$$
+
+```{r}
+library(gridExtra)
+rstan_options (auto_write = TRUE)
+options (mc.cores = parallel::detectCores ())
+set.seed(3) # for reproductibility
+```
+
+```{r}
+# time series of cases
+cases <- influenza_england_1978_school$in_bed  # Number of students in bed
+
+# total count
+N <- 763;
+
+# times
+n_days <- length(cases) 
+t <- seq(0, n_days, by = 1)
+t0 = 0 
+t <- t[-1]
+
+#initial conditions
+i0 <- 1
+s0 <- N - i0
+r0 <- 0
+y0 = c(S = s0, I = i0, R = r0)
+
+# data for Stan
+data_sir <- list(n_days = n_days, y0 = y0, t0 = t0, ts = t, N = N, cases = cases)
+
+# number of MCMC steps
+niter <- 2000
+```
+
+
+compile the model
+
+schools_fit=stan(file = "schools.stan",
+                 data=c("J","y","sigma"), iter=1000,chains = 4)
+
+```{r}
+fit_sir<- stan("sirmodel.stan",data=data_sir)
+```
+
+```{r}
+pars=c('beta', 'gamma', "R0", "recovery_time")
+```
+
+### Checking inference
+
+```{r}
+print(fit_sir, pars = pars)
+```
+
+
+
+
