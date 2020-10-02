@@ -1,0 +1,75 @@
+---
+title: "Stan example from Appendix C"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+I am working from page 590 in the book, to show how stan would be used on a problem we have seen before.
+
+#### Packages
+
+I load a standard kid of packages, in case we need it.
+
+```{r}
+library(knitr)
+library(lubridate) # working with dates
+library(broom)
+library(gridExtra)
+library(tidyverse) # data manipulation and visualization - loads several packages
+
+```
+And I also load `rstan` an R wrapper that makes it easy to use STAN inside of R.
+
+
+
+```{r}
+library ("rstan")
+rstan_options(auto_write = TRUE)
+```
+
+
+### Get the data
+
+```{r}
+J <- 8
+y <- c(28,8,-3,7,-1,1,18,12)
+sigma <- c(15,10,16,11,9,11,10,18)
+```
+
+### Run the stan using a chaing
+
+
+```{r}
+schools_fit=stan(file = "schools.stan",
+                 data=c("J","y","sigma"), iter=1000,chains = 4)
+print(schools_fit)
+plot(schools_fit)
+
+```
+
+## Let's try the Rats example
+
+We now consider a separate example looking at grow rate of rats.  Data taken from https://raw.github.com/wiki/stan-dev/rstan/rats.txt .
+
+
+```{r}
+y <- as.matrix(read.table('https://raw.github.com/wiki/stan-dev/rstan/rats.txt', header = TRUE))
+x <- c(8, 15, 22, 29, 36)
+xbar <- mean(x)
+N <- nrow(y)
+T <- ncol(y)
+```
+
+
+```{r}
+#rats_fit=stan(file = "rats.stan",iter=1000,chains = 4)
+tictoc::tic("rats")
+rats_fit <- stan('rats2.stan')
+tictoc::toc()
+print(rats_fit)
+plot(rats_fit)
+
+```
+
+
