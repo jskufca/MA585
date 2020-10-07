@@ -1,0 +1,98 @@
+---
+title: "Stan example of simple linear regression"
+author: "Joe Skufca"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+I will use the stan code from the Stan User's Guide.
+
+https://mc-stan.org/docs/2_24/stan-users-guide/linear-regression.html
+
+
+
+#### Packages
+
+I load a standard kid of packages, in case we need it.
+
+```{r}
+library(knitr)
+library(broom)
+library(gridExtra)
+library(tidyverse) # data manipulation and visualization - loads several packages
+
+```
+And I also load `rstan` an R wrapper that makes it easy to use STAN inside of R.
+
+
+
+```{r}
+library ("rstan")
+rstan_options(auto_write = TRUE)
+```
+
+
+### Create a dataset
+
+```{r}
+df1=cars
+
+
+N = 50
+x=df1$speed
+y=df1$dist
+
+
+```
+
+### Run the stan using a chaing
+
+
+```{r}
+reg_fit=stan(file = "regression1.stan",
+                 data=c("N","x","y"), iter=1000,chains = 4)
+print(reg_fit)
+plot(reg_fit)
+
+```
+
+
+```{r}
+plot(reg_fit,plotfun="rhat",ncol=1)
+```
+
+```{r}
+lm(dist~speed,data=df1) %>% summary()
+```
+
+## A second example - a learning problem
+
+Suppose we "learn" a task (over time), with $p$ giving the probability that we can demonstrate a particular knowledge element.
+
+### Data creation
+
+```{r}
+A=.95
+B=.15
+
+N = 20
+t=1:N # data
+
+p=A*(1-exp(-B*t)) # unknown 
+
+y=rbinom(20,10,p) # data
+
+```
+
+
+```{r}
+reg_fit=stan(file = "regression2.stan",
+                 data=c("N","t","y"), iter=1000,chains = 4)
+print(reg_fit)
+plot(reg_fit)
+
+```
+
+
+
