@@ -66,3 +66,33 @@ plot(reg_fit,plotfun="rhat",ncol=1)
 lm(dist~speed,data=df1) %>% summary()
 ```
 
+## A second example - a learning problem
+
+Suppose we "learn" a task (over time), with $p$ giving the probability that we can demonstrate a particular knowledge element.
+
+### Data creation
+
+```{r}
+A=.95
+B=.15
+
+N = 20
+t=1:N # data
+
+p=A*(1-exp(-B*t)) # unknown 
+
+y=rbinom(20,10,p) # data
+
+```
+
+
+```{r}
+reg_fit=stan(file = "regression2.stan",
+                 data=c("N","t","y"), iter=1000,chains = 4)
+print(reg_fit)
+plot(reg_fit)
+
+```
+
+
+
