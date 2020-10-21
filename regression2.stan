@@ -16,4 +16,5 @@ parameters {
 
 model {
   y ~ binomial(10,a*(1-exp(-b*t)));
+  b~normal(.5,2);
 }
