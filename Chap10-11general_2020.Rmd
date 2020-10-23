@@ -106,7 +106,7 @@ rho=.8
 S[1,2]=rho
 S[2,1]=rho
 
-sj=.2;  # jump scale
+sj=20;  # jump scale
 theta1=numeric(n)-2.5 #initialize
 theta2=numeric(n)+2.5 #initialize
 for (i in 2:n) {
@@ -129,7 +129,7 @@ for (i in 2:n) {
     }
 }
 
-plot(theta1,theta2,asp=1)
+plot(theta1,theta2,asp=1,type="l")
 lines(ell$x,ell$y)
 
 ```
@@ -140,7 +140,7 @@ Here we try a different jump distribution, where the jump is a proposed movement
 
  
 ```{r}
-n=2000
+n=20000
 y1=0
 y2=0
 
@@ -152,7 +152,7 @@ rho=.8
 S[1,2]=rho
 S[2,1]=rho
 
-sj=.4;  # jump scale
+sj=.7;  # jump scale
 theta1=numeric(n)-2.5 #initialize
 theta2=numeric(n)+2.5 #initialize
 for (i in 2:n) {
@@ -229,7 +229,7 @@ plot(theta)
 This is a bit of fancier R programming, taking advantage of the `purrr` package.   I use it to generate a large dataframe containg 5 different chains.
 
 ```{r}
-n=200; #number of iterations retained after discard and splitting
+n=2000; #number of iterations retained after discard and splitting
 m=10; #number of chains, after splitting
 MC=1:(m/2) %>% map_df(~tibble(run=.x,theta=make.chain(4*n,rnorm(1,0,5)),index=seq(theta)))
 

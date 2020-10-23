@@ -59,7 +59,7 @@ plot(reg_fit)
 
 
 ```{r}
-plot(reg_fit,plotfun="rhat",ncol=1)
+plot(reg_fit,plotfun="hist",ncol=1)
 ```
 
 ```{r}

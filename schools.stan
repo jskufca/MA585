@@ -12,6 +12,7 @@ transformed parameters {
 vector[J] theta; // school effects
 theta = mu + tau*eta;
 }
+
 model {
 eta ~ normal(0, 1);
 y ~ normal(theta, sigma);

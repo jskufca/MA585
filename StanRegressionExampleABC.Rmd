@@ -43,7 +43,10 @@ df1=read_excel("MA131_ABC_EXAM_Fall_2018_final DL.xls",col_names = F) %>%
 
 df2=df1 %>% pivot_longer(1:4) %>% select(-name) %>% mutate(t=rep(c(0,1,2,3),139))
 
-df2 %>% group_by(ID) %>%  ggplot(aes(x=t,y=value,group=ID)) +geom_line()
+df2 %>% group_by(ID) %>%  ggplot(aes(x=value)) +geom_histogram(binwidth =1)+facet_wrap(~t,ncol=4)
+
+
+df2 %>% group_by(ID) %>%  ggplot(aes(x=t,y=value,group=ID))+geom_line()
 
 ```
 
