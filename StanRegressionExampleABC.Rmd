@@ -29,6 +29,7 @@ And I also load `rstan` an R wrapper that makes it easy to use STAN inside of R.
 ```{r}
 library ("rstan")
 rstan_options(auto_write = TRUE)
+options (mc.cores = parallel::detectCores ())
 ```
 
 
@@ -75,20 +76,68 @@ plot(reg_fit)
 
 ```
 
-# Below not fixed
+
 
 ### Run the stan using a chaing
 
-
-
-
+Looks like maybe the chain is OK
 
 ```{r}
 plot(reg_fit,plotfun="rhat",ncol=1)
 ```
 
+## Validation
+
+Let's extract data from the fitted model.
+
+
 ```{r}
+dfout=extract(reg_fit)
+```
+
+List of values for $y_{new}$.
+
+```{r}
+ynew=dfout$y_new 
+```
+
+```{r}
+ynew_pass=(ynew>=18)
 
 ```
+
+```{r}
+b=ynew_pass+0 
+dim(b)
+rowSums(b) %>% mean()
+```
+
+```{r}
+sum(df1$t_4>=18)
+```
+### Bayesplot
+
+```{r}
+library(bayesplot)
+library(rstanarm)
+```
+
+```{r}
+posterior=as.matrix(reg_fit)
+```
+
+```{r}
+mcmc_areas(posterior, pars=c("mua","sigmaa","mub","sigmab"))
+
+```
+
+```{r}
+y <- df1$t_4
+yrep1 <- extract(reg_fit)$y_new
+samp100 <- sample(nrow(yrep1), 100)
+ppc_dens_overlay(y, yrep1[samp100, ]) 
+```
+
+
 
 
