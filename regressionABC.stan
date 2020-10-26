@@ -27,7 +27,7 @@
 //   y ~ bernoulli_logit(beta[kk, 1] + beta[kk, 2] .* x);
 // }
 
-
+ 
 data {
   int<lower=1> N; //total number of observations
   int<lower=1> J; //the number of groups

@@ -1,0 +1,143 @@
+---
+title: "Stan analysis of ABC1 Testing results using Heirarchical model"
+author: "Joe Skufca"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+I will use the stan code from the Stan User's Guide.
+
+
+
+### Packages
+
+I load a standard kid of packages, in case we need it.
+
+```{r}
+library(knitr)
+library(broom)
+library(gridExtra)
+library(readxl)
+library(tidyverse) # data manipulation and visualization - loads several packages
+library(janitor)
+```
+And I also load `rstan` an R wrapper that makes it easy to use STAN inside of R.
+
+
+
+```{r}
+library ("rstan")
+rstan_options(auto_write = TRUE)
+options (mc.cores = parallel::detectCores ())
+```
+
+
+### Load a dataset
+
+From 2018, data is test scores for first 4 exams, filtered so that we are looking only at students who took all four exams (to simplify our structure).
+
+```{r}
+df1=read_excel("MA131_ABC_EXAM_Fall_2018_final DL.xls",col_names = F) %>%
+  rename_with(~paste0("t",.x))%>% clean_names() %>% 
+  mutate(ID=factor(1:139))
+
+df2=df1 %>% pivot_longer(1:4) %>% select(-name) %>% mutate(t=rep(c(0,1,2,3),139))
+
+df2 %>% group_by(ID) %>%  ggplot(aes(x=value)) +geom_histogram(binwidth =1)+facet_wrap(~t,ncol=4)
+
+
+df2 %>% group_by(ID) %>%  ggplot(aes(x=t,y=value,group=ID))+geom_line()
+
+```
+
+
+### Form our data
+
+```{r}
+N=139*3;
+J=139;
+
+df3=df1 %>%  pivot_longer(1:3) %>% select(-name) %>% mutate(t=rep(c(0,1,2),139))
+id=as.integer(df3$ID) 
+X=df3$t
+y=df3$value
+
+
+```
+
+### Fit the model
+
+```{r}
+reg_fit=stan(file = "regressionABC.stan",
+                 data=c("N","J","id","X","y"), iter=1000,chains = 4)
+print(reg_fit)
+plot(reg_fit)
+
+```
+
+
+
+### Run the stan using a chaing
+
+Looks like maybe the chain is OK
+
+```{r}
+plot(reg_fit,plotfun="rhat",ncol=1)
+```
+
+## Validation
+
+Let's extract data from the fitted model.
+
+
+```{r}
+dfout=extract(reg_fit)
+```
+
+List of values for $y_{new}$.
+
+```{r}
+ynew=dfout$y_new 
+```
+
+```{r}
+ynew_pass=(ynew>=18)
+
+```
+
+```{r}
+b=ynew_pass+0 
+dim(b)
+rowSums(b) %>% mean()
+```
+
+```{r}
+sum(df1$t_4>=18)
+```
+### Bayesplot
+
+```{r}
+library(bayesplot)
+library(rstanarm)
+```
+
+```{r}
+posterior=as.matrix(reg_fit)
+```
+
+```{r}
+mcmc_areas(posterior, pars=c("mua","sigmaa","mub","sigmab"))
+
+```
+
+```{r}
+y <- df1$t_4
+yrep1 <- extract(reg_fit)$y_new
+samp100 <- sample(nrow(yrep1), 100)
+ppc_dens_overlay(y, yrep1[samp100, ]) 
+```
+
+
+
+
