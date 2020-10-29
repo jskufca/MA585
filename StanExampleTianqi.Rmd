@@ -1,0 +1,130 @@
+---
+title: "Stan example: Estimating a location"
+output:
+  html_notebook:
+    theme: united
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+subtitle: Motivated by Tianqi's research
+editor_options:
+  chunk_output_type: inline
+---
+
+I am working on the problem of estimating the location of an object based purely on the set of distances from some fixed anchor locations.
+
+## Packages
+
+I load a standard kid of packages, in case we need it.
+
+```{r}
+library(knitr)
+library(lubridate) # working with dates
+library(broom)
+library(gridExtra)
+library(tidyverse) # data manipulation and visualization - loads several packages
+
+```
+And I also load `rstan` an R wrapper that makes it easy to use STAN inside of R.
+
+```{r message=FALSE, warning=FALSE}
+library ("rstan")
+library("loo")
+rstan_options(auto_write = TRUE) # recommended option - writes the compiled model
+options(mc.cores = parallel::detectCores())
+```
+
+
+## Problem 1: a single object
+
+For this first model, let's assume we are trying to locate a single object by observing is distance from N=5 anchors (fixed sensors).   
+
+### Data
+
+We first create surrogate data.  The anchors are resumed to be at locations defined in $X$, where each row is an anchor position.  We will assume a known location of $(0.6,0.8)$ for the object and create surrogate data for the location information by using a lognormal distrution (representing muliplicative error)
+
+```{r}
+N=5 # number of anchors
+X=matrix(c(0,.5,1,1.5,2,0,3,0,1,4),N,2)
+plot(X)
+
+d=sqrt((X[,1]-.6)^2+(X[,2]-.8)^2) # true distances to (0.6,0.8)
+
+meas.sd=.1
+y=rlnorm(5,log(d),meas.sd)
+y
+d
+
+```
+
+### Create the stan model
+
+Good work practices are to create the model in a `.stan` file, which allows for easier reuse, to include using that file with other interfaces that access the stan library.  We will create in a file called `TQdist1.stan`.
+
+Some notes in building the model:
+
+* You can access the stan User guide and reference manual at https://github.com/stan-dev/stan/releases/download/v2.17.0/stan-reference-2.17.0.pdf
+* For Gelman's advice on priors in STAN, take a look at https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations
+* If you understand the *Tidy Data* construct in R, then applying to R models makes use of the *tidybayes* package.  See a short tutorial at https://mjskay.github.io/tidybayes/articles/tidybayes.html
+
+
+
+
+
+### Fit the stan model
+
+The `stan` command takes the *.stan* model file and compiles the required C-code and saves it.  (Turns out, this can take a while.)  Then it generates the necessary chains and samples.  If you run it a second time, it has already compiled the code, and will only do the sampling.
+
+```{r}
+TQ1_fit=stan(file = "TQdist1.stan", 
+              data=c("N","X","y"),
+             iter=1000,chains = 4)
+print(TQ1_fit)
+plot(X,pch=2,col="blue")
+plot(extract(TQ1_fit)$theta)
+
+ 
+```
+
+If we limit the range of possible locations.
+
+```{r}
+TQ2_fit=stan(file = "TQdist2.stan", 
+              data=c("N","X","y"),
+             iter=1000,chains = 4)
+print(TQ2_fit)
+plot(X,pch=2,col="blue")
+points(extract(TQ2_fit)$theta)
+
+
+```
+
+
+If we specifiy a constraint that $theta_1+theta_2=1.4$.
+
+```{r eval=FALSE, include=FALSE}
+TQ3_fit=stan(file = "TQdist3.stan",
+              data=c("N","X","y"),
+             iter=1000,chains = 4)
+print(TQ3_fit)
+plot(X,pch=2,col="blue")
+points(extract(TQ3_fit)$theta)
+```
+
+Now lets create a model as if we expected the position to be on a road with some width.
+
+```{r}
+TQ4_fit=stan(file = "TQdist4.stan",
+              data=c("N","X","y"),
+             iter=1000,chains = 4)
+print(TQ4_fit)
+plot(X,pch=2,col="blue")
+points(extract(TQ4_fit)$theta)
+```
+
+
+Can I build a heirarchical model with many agents on a road - and discover the road.
+
+
