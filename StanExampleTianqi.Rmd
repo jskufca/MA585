@@ -48,7 +48,7 @@ We first create surrogate data.  The anchors are resumed to be at locations defi
 ```{r}
 N=5 # number of anchors
 X=matrix(c(0,.5,1,1.5,2,0,3,0,1,4),N,2)
-plot(X)
+plot(X,asp=1)
 
 d=sqrt((X[,1]-.6)^2+(X[,2]-.8)^2) # true distances to (0.6,0.8)
 
@@ -82,8 +82,8 @@ TQ1_fit=stan(file = "TQdist1.stan",
               data=c("N","X","y"),
              iter=1000,chains = 4)
 print(TQ1_fit)
-plot(X,pch=2,col="blue")
-plot(extract(TQ1_fit)$theta)
+plot(X,pch=2,col="blue",asp=1)
+points(extract(TQ1_fit)$theta)
 
 
  
@@ -96,8 +96,8 @@ TQ2_fit=stan(file = "TQdist2.stan",
               data=c("N","X","y"),
              iter=1000,chains = 4)
 print(TQ2_fit)
-plot(X,pch=2,col="blue")
-points(extract(TQ2_fit)$theta)
+plot(X,pch=2,col="blue",asp=1)
+points(extract(TQ2_fit)$theta,asp=1)
 
 
 ```
@@ -110,8 +110,9 @@ TQ3_fit=stan(file = "TQdist3.stan",
               data=c("N","X","y"),
              iter=1000,chains = 4)
 print(TQ3_fit)
-plot(X,pch=2,col="blue")
+plot(X,pch=2,col="blue",asp=1)
 points(extract(TQ3_fit)$theta)
+
 ```
 
 Now lets create a model as if we expected the position to be on a road with some width.
@@ -121,7 +122,7 @@ TQ4_fit=stan(file = "TQdist4.stan",
               data=c("N","X","y"),
              iter=1000,chains = 4)
 print(TQ4_fit)
-plot(X,pch=2,col="blue")
+plot(X,pch=2,col="blue",asp=1)
 points(extract(TQ4_fit)$theta)
 ```
 
