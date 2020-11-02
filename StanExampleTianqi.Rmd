@@ -85,6 +85,7 @@ print(TQ1_fit)
 plot(X,pch=2,col="blue")
 plot(extract(TQ1_fit)$theta)
 
+
  
 ```
 
